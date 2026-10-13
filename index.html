@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>生活叙事内容助手</title>
+  <style>
+    :root{--bg:#f5f2ec;--card:#fffdf8;--ink:#20201e;--muted:#77736a;--line:#e5dfd4;--accent:#c95d3a;--accent2:#244e5a}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+    .wrap{max-width:1120px;margin:0 auto;padding:38px 20px 60px}.eyebrow{color:var(--accent);font-size:13px;letter-spacing:.12em;font-weight:700;text-transform:uppercase}
+    h1{font-size:clamp(30px,5vw,54px);line-height:1.08;margin:12px 0 14px;max-width:720px}.lead{color:var(--muted);font-size:17px;line-height:1.7;max-width:700px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 8px 30px #42331c0b}.full{grid-column:1/-1}
+    label{display:block;font-size:13px;font-weight:700;margin:14px 0 7px} input,textarea,select{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;padding:11px 12px;font:inherit;color:var(--ink)}textarea{min-height:110px;resize:vertical}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button{border:0;border-radius:999px;padding:11px 17px;font:inherit;font-weight:700;cursor:pointer;background:var(--accent);color:#fff}button.secondary{background:#eee8dd;color:var(--ink)}
+    .output{white-space:pre-wrap;line-height:1.7;border-top:1px solid var(--line);padding-top:16px;margin-top:16px}.tag{display:inline-block;background:#e8f0ee;color:var(--accent2);padding:4px 9px;border-radius:999px;font-size:12px;margin:3px}
+    .empty{color:var(--muted);font-size:14px}.history{display:grid;gap:10px}.history-item{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}.history-item strong{display:block;margin-bottom:5px}.mini{font-size:12px;color:var(--muted)}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="eyebrow">Shenzhen × Hong Kong · 内容助手 v0.1</div>
+    <h1>把普通的一天，讲成一个值得看完的故事。</h1>
+    <p class="lead">为你的生活记录生成短视频结构、旁白和三平台文案。这里借鉴的是“生活片段＋旁白叙事”的方法，不复制任何博主的文案或素材。</p>
+
+    <section class="grid">
+      <div class="card">
+        <h2>今天拍到了什么？</h2>
+        <label for="topic">这条内容想讲什么</label>
+        <input id="topic" placeholder="例如：住在深圳，每天去香港上班" />
+        <label for="scenes">素材和生活细节</label>
+        <textarea id="scenes" placeholder="例如：早上过关、车上睡着、午餐很赶、下班回深圳；写 3-8 个片段即可"></textarea>
+        <label for="feeling">你真正想表达的感受</label>
+        <input id="feeling" placeholder="例如：累，但觉得自己正在慢慢变好" />
+        <div class="actions"><button id="generate">生成这条内容</button><button class="secondary" id="clear">清空</button></div>
+        <p class="hint">建议先写真实细节，不要先追求“高级”。真实细节会让旁白更像你。</p>
+      </div>
+
+      <div class="card">
+        <h2>表达设定</h2>
+        <label for="format">内容形式</label>
+        <select id="format"><option>生活画面＋第一人称旁白</option><option>生活画面＋字幕日记</option><option>图文轮播＋短文</option></select>
+        <label for="pace">节奏</label>
+        <select id="pace"><option>克制、留白、慢一点</option><option>自然、有一点轻快</option><option>短句密集、节奏更快</option></select>
+        <label for="goal">这条内容的目的</label>
+        <select id="goal"><option>让陌生人认识我</option><option>分享一个生活观察</option><option>记录个人成长</option><option>引导别人私信交流</option></select>
+        <div class="output" id="summary"><span class="empty">生成后，这里会出现镜头顺序、旁白和平台文案。</span></div>
+      </div>
+
+      <div class="card full">
+        <h2>生成结果</h2>
+        <div id="result" class="empty">还没有内容。先填写左侧信息。</div>
+      </div>
+
+      <div class="card full">
+        <h2>最近保存</h2>
+        <div id="history" class="history"><span class="empty">生成并保存后会显示在这里。</span></div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const getHistory = () => JSON.parse(localStorage.getItem('life-content-history') || '[]');
+    const saveHistory = item => { const h=[item,...getHistory()].slice(0,8); localStorage.setItem('life-content-history',JSON.stringify(h)); renderHistory(); };
+    const splitScenes = raw => raw.split(/[\n,，。；;]+/).map(s=>s.trim()).filter(Boolean).slice(0,8);
+    function build(){
+      const topic=$('topic').value.trim() || '我最近的生活'; const scenes=splitScenes($('scenes').value); const feeling=$('feeling').value.trim() || '我还在学习怎么把日子过好';
+      if(!scenes.length){ $('result').textContent='请先写下至少 3 个生活片段。'; return; }
+      const hook = `我以前以为，${topic}只是把每天重复一遍。后来才发现，真正改变人的，是这些没人注意的小片段。`;
+      const voice = [hook, ...scenes.map((s,i)=>`${i===0?'今天从这里开始：':'然后，'}${s}。`), `这些事情看起来都很普通，但对现在的我来说，${feeling}。`, '我还没有答案，不过我想先把这段路记录下来。'].join('\n');
+      const shots = scenes.map((s,i)=>`${i+1}. ${s}（${i===0?'开场建立场景':'2-4 秒生活细节'}）`).join('\n');
+      const captions = `抖音标题：${topic}，这是我最近最真实的一天\n小红书标题：住在深圳、工作在香港，我开始记录自己的普通生活\nInstagram caption：A normal day between Shenzhen and Hong Kong. Still learning, still moving.\n\n建议标签：#深圳香港生活 #个人成长 #生活记录 #刚毕业 #运动员转行`;
+      $('summary').innerHTML=`<span class="tag">${$('format').value}</span><span class="tag">${$('pace').value}</span><span class="tag">${$('goal').value}</span>`;
+      $('result').innerHTML=`<strong>1｜开头钩子</strong><div class="output">${hook}</div><strong>2｜镜头顺序</strong><div class="output">${shots}</div><strong>3｜旁白初稿</strong><div class="output">${voice}</div><strong>4｜三平台文案</strong><div class="output">${captions}</div><div class="actions"><button id="save">保存这条</button><button class="secondary" id="copy">复制全部结果</button></div>`;
+      $('save').onclick=()=>saveHistory({topic,voice,date:new Date().toLocaleDateString('zh-CN')}); $('copy').onclick=()=>navigator.clipboard?.writeText(`${topic}\n\n${voice}\n\n${captions}`);
+    }
+    function renderHistory(){ const h=getHistory(); $('history').innerHTML=h.length?h.map(x=>`<div class="history-item"><strong>${x.topic}</strong><div class="mini">${x.date}</div><div>${x.voice.slice(0,120)}${x.voice.length>120?'…':''}</div></div>`).join(''):'<span class="empty">生成并保存后会显示在这里。</span>'; }
+    $('generate').onclick=build; $('clear').onclick=()=>{['topic','scenes','feeling'].forEach(id=>$(id).value='');$('result').innerHTML='<span class="empty">还没有内容。先填写左侧信息。</span>';}; renderHistory();
+  </script>
+</body>
+</html>
